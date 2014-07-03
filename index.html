@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en" data-ng-app="exampleApp">
+<head class="ng-cloak">
+
+  <!-- Works with angularJS 1.2.9 -->
+  <script src="bower_components/angular/angular.min.js"></script>
+  <script src="bower_components/ac-fancy-input/dist/ac-fancy-input.js" type="text/javascript"></script>
+  <script src="example.js" type="text/javascript"></script>
+  <link href="example.css" media="all" rel="stylesheet">
+</head>
+
+<body class="ng-cloak">
+  <div ng-controller="AcExampleController">
+
+    <input class="main-search" ac-fancy-input ac-animate="allowAnimation">
+
+    <div ac-fancy-input-suggestions ac-suggestion-count="8" ac-view-more-action="myViewMoreAction">
+      <div acfi-content-template>
+        <div>{{content.string}} - </div>
+        <div>Color: {{content.color}}</div>
+      </div>
+      <div acfi-view-more-template>View More</div>
+      <div acfi-no-results-template>
+        <span>No results for "<span>{{ AcfiData.string }}</span>"</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
