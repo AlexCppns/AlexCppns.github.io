@@ -4,25 +4,28 @@
 // ******************************** controller definition for search-box-suggestions ******************************** //
 
 
-acfi.controller('acfiSuggestionsController',[ 'acfiData', '$scope','$q', function(AcfiData, $scope, $q){
+acfi.controller('acfiSuggestionsController',[ 'acfiDataInstance', '$scope','$q', function(AcfiDataInstance, $scope, $q){
 
-  $scope.AcfiData = AcfiData;
+  $scope.AcfiData = AcfiDataInstance.get($scope.acId);
 
-  $scope.$on("onKeyUpAndDown", function(event, direction){
-    $scope.deferWatching().then(function(success){
-      if(success){
-        $scope.AcfiData.display = true;
-        $scope.AcfiData.onKeyUpAndDown(event, direction);
-      }
-    });
+  $scope.$on("onKeyUpAndDown", function(event, direction, id){
+    if($scope.acId === id){
+      $scope.deferWatching().then(function(success){
+        if(success){
+          $scope.AcfiData.display = true;
+          $scope.AcfiData.onKeyUpAndDown(event, direction);
+        }
+      });
+    }
   });
 
-  $scope.$on("onCloseDisplay", function(){
-
-    // This apply is important (called from directive):
-    $scope.$apply(function(){
-      $scope.AcfiData.display = false;
-    });
+  $scope.$on("onCloseDisplay", function(event, id){
+    if($scope.acId === id){
+      // This apply is important (called from directive):
+      $scope.$apply(function(){
+        $scope.AcfiData.display = false;
+      });
+    }
   });
 
   // Not sure if this is still necessary
@@ -40,9 +43,11 @@ acfi.controller('acfiSuggestionsController',[ 'acfiData', '$scope','$q', functio
 // **************************************** fancy input suggestions directives ************************************** //
 
 
-acfi.directive('acFancyInputSuggestions', [ '$rootScope', function($rootScope){
+acfi.directive('acFancyInputSuggestions', [ '$rootScope','$window', function($rootScope, $window){
 
-  var header_template = '<div ng-transclude></div><span acfi-header></span>';
+
+
+  var header_template = '<div data-ng-transclude></div><span data-acfi-header></span>';
 
   var ng_repeat_template = '<div class="type-row clearfix" data-ng-class="suggestion_type.klass" data-ng-class-even="\'even\'" data-ng-class-odd="\'odd\'" data-ng-repeat="suggestion_type in AcfiData.suggestion_types">' +
       '<div class="type-name-wrapper" data-ng-show="suggestion_type.contents.length > 0">' +
@@ -54,7 +59,7 @@ acfi.directive('acFancyInputSuggestions', [ '$rootScope', function($rootScope){
       'data-ng-class="{ selected: content.selected}" ' +
       'data-ng-mouseover="AcfiData.selectSuggestion($parent.$index, $index)" ' +
       'data-ng-click="AcfiData.selectSuggestion($parent.$index, $index); acfiQueryAction()">' +
-      '<div class="row-wrapper light clearfix" acfi-content></div>'+
+      '<div class="row-wrapper light clearfix" data-acfi-content></div>'+
       '</li>' +
       '</ul>' +
       '</div>' +
@@ -63,32 +68,37 @@ acfi.directive('acFancyInputSuggestions', [ '$rootScope', function($rootScope){
   var footer_template = '<div class="view-more">' +
       '<a data-ng-show="AcfiData.noResultDisplay == false && acSuggestionCount > AcfiData.suggestionDisplayLimit" ' +
       'data-ng-click="acfiViewMoreAction($event)">' +
-      '<div acfi-view-more></div>' +
+      '<div data-acfi-view-more></div>' +
       '</a>' +
-      '<a data-ng-show="AcfiData.noResultDisplay == true" class="no-results"><div acfi-no-results></div></a>'+
+      '<a data-ng-show="AcfiData.noResultDisplay == true" class="no-results"><div data-acfi-no-results></div></a>'+
       '</div>';
 
 
-  var template = '<div id="input-suggestion-box" class="input-suggestion" data-ng-show="AcfiData.display == true" acfi-reset-display>';
+  var template = '<div id="input-suggestion-box" class="input-suggestion" data-ng-show="AcfiData.display == true" data-acfi-reset-display>';
   template += header_template + ng_repeat_template + footer_template;
   template += '</div>';
 
   return {
     scope: {
       acfiViewMoreAction: '=acViewMoreAction',
-      acSuggestionCount: '=?'
+      acSuggestionCount: '=?',
+      acId: '=acFancyInputSuggestions'
     },
     template: template,
     transclude: true,
     controller: 'acfiSuggestionsController',
-    link: function(scope, e, attrs){
+    link: function(scope, element, attrs){
       if(attrs.acSuggestionCount===undefined){
         scope.acSuggestionCount = 0;
       }
 
       scope.acfiQueryAction = function(){
-        $rootScope.$broadcast('onSubmitQuery');
+        $rootScope.$broadcast('onSubmitQuery', scope.acId);
       };
+
+      var w = angular.element($window);
+      element.bind('click', function(e){ e.stopPropagation(); });
+      w.bind('click', function(e){ $rootScope.$broadcast("onCloseDisplay", scope.acId); });
     }
   };
 }]);
@@ -128,3 +138,5 @@ acfi.directive('acfiNoResultsTemplate', function(){ return acfi_template_directi
 acfi.directive('acfiNoResults', function(){ return acfi_transclude_directive('NoResults'); });
 acfi.directive('acfiViewMoreTemplate', function(){ return acfi_template_directive('ViewMore'); });
 acfi.directive('acfiViewMore', function(){ return acfi_transclude_directive('ViewMore'); });
+
+

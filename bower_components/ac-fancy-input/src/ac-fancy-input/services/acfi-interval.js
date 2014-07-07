@@ -5,103 +5,136 @@
 
 // manages text animation in the input field
 
+
 acfi.factory('acfiInterval', [ '$q', '$rootScope', '$interval', '$timeout', function ($q, $rootScope, $interval, $timeout) {
 
-  var acfiInterval = {};
+  var acfiInterval = function(id){
+    this.id = id;
+    this.intervalTime = 90;
+    this.pauseTimeoutTime = 2000;
+    this.stopInterval = false;
+    this.initInterval = null;
+    this.pauseTimeout = null;
+    this.continueInterval = null;
+    this.loopIndex = 0;
+    this.maxLoopIndex= 6;
+    this.miniTimeout = null;
+    this.inFocus = true;
+    this.antiKonami = false;
+  };
 
-  acfiInterval.intervalTime = 90;
-  acfiInterval.pauseTimeoutTime = 2000;
-  acfiInterval.stopInterval = false;
-  acfiInterval.initInterval = null;
-  acfiInterval.pauseTimeout = null;
-  acfiInterval.continueInterval = null;
-  acfiInterval.loopIndex = 0;
-  acfiInterval.maxLoopIndex= 6;
-  acfiInterval.miniTimeout = null;
-  acfiInterval.inFocus = true;
-  acfiInterval.antiKonami = false;
 
-  acfiInterval.startAnimationInterval = function () {
-    if(acfiInterval.antiKonami === false){
-      acfiInterval.pauseTimeout = null;
-      acfiInterval.continueInterval = null;
+  var startAnimationInterval = function () {
+    var acfi_i = this;
+    if(this.antiKonami === false){
+      this.pauseTimeout = null;
+      this.continueInterval = null;
 
-      acfiInterval.initInterval = $interval(function () {
-        if(acfiInterval.inFocus === true){
+      this.initInterval = $interval(function () {
+        if(acfi_i.inFocus === true){
           // only refresh state if in focus
-          $rootScope.$broadcast("onInitInterval");
+          $rootScope.$broadcast("onInitInterval", acfi_i.id);
         }
-      }, acfiInterval.intervalTime);
-      acfiInterval.antiKonami = true;
+      }, this.intervalTime);
+      this.antiKonami = true;
     }
   };
 
 
-  acfiInterval.stopAnimationInterval = function () {
-    acfiInterval.antiKonami = false;
-    acfiInterval.loopIndex = 0;
-    acfiInterval.safeCancel(acfiInterval.initInterval);
-    acfiInterval.safeTimeoutCancel(acfiInterval.pauseTimeout);
-    acfiInterval.safeTimeoutCancel(acfiInterval.miniTimeout);
-    acfiInterval.safeCancel(acfiInterval.continueInterval);
-    acfiInterval.initInterval = null;
-    acfiInterval.continueInterval = null;
-    acfiInterval.pauseTimeout = null;
-    acfiInterval.stopInterval = true;
-    $rootScope.$broadcast("onStopInterval");
+  var stopAnimationInterval = function () {
+    this.antiKonami = false;
+    this.loopIndex = 0;
+    this.safeCancel(this.initInterval);
+    this.safeTimeoutCancel(this.pauseTimeout);
+    this.safeTimeoutCancel(this.miniTimeout);
+    this.safeCancel(this.continueInterval);
+    this.initInterval = null;
+    this.continueInterval = null;
+    this.pauseTimeout = null;
+    this.stopInterval = true;
+    $rootScope.$broadcast("onStopInterval", this.id);
   };
 
 
-  acfiInterval.continueAnimationInterval = function(){
-    acfiInterval.pauseTimeout = null;
-    acfiInterval.miniTimeout = $timeout(function () {
-      if(acfiInterval.inFocus === true){
-        $rootScope.$broadcast("onSlowContinueInterval");
+  var continueAnimationInterval = function(){
+    var acfi_i = this;
+    this.pauseTimeout = null;
+    this.miniTimeout = $timeout(function () {
+      if(acfi_i.inFocus === true){
+        $rootScope.$broadcast("onSlowContinueInterval", acfi_i.id);
       }
-      acfiInterval.continueInterval = $interval(function () {
-        if(acfiInterval.inFocus === true){
-          $rootScope.$broadcast("onContinueInterval");
+      acfi_i.continueInterval = $interval(function () {
+        if(acfi_i.inFocus === true){
+          $rootScope.$broadcast("onContinueInterval", acfi_i.id);
         }
-      }, acfiInterval.intervalTime);
+      }, acfi_i.intervalTime);
     }, 120);
   };
 
 
-  acfiInterval.pauseAnimationInterval = function (){
+  var pauseAnimationInterval = function (){
+    var acfi_i = this;
+    this.safeCancel(this.continueInterval);
+    this.safeCancel(this.initInterval);
+    this.initInterval = null;
+    this.continueInterval = null;
 
-    acfiInterval.safeCancel(acfiInterval.continueInterval);
-    acfiInterval.safeCancel(acfiInterval.initInterval);
-    acfiInterval.initInterval = null;
-    acfiInterval.continueInterval = null;
-
-    acfiInterval.pauseTimeout = $timeout(function () {
-      if(acfiInterval.inFocus === true){
-        acfiInterval.loopIndex += 1;
-        if(acfiInterval.loopIndex >= acfiInterval.maxLoopIndex){
-          acfiInterval.loopIndex = 0;
+    this.pauseTimeout = $timeout(function () {
+      if(acfi_i.inFocus === true){
+        acfi_i.loopIndex += 1;
+        if(acfi_i.loopIndex >= acfi_i.maxLoopIndex){
+          acfi_i.loopIndex = 0;
         }
-        $rootScope.$broadcast("onPauseInterval", acfiInterval.loopIndex);
-        acfiInterval.continueAnimationInterval();
+        $rootScope.$broadcast("onPauseInterval", acfi_i.loopIndex, acfi_i.id);
+        acfi_i.continueAnimationInterval();
       }else{
         // Important condition: retry after the timeout if no focus
         // main reason of glitch
-        acfiInterval.pauseAnimationInterval();
+        acfi_i.pauseAnimationInterval();
       }
-
-    }, acfiInterval.pauseTimeoutTime);
-
+    }, this.pauseTimeoutTime);
   };
 
 
-  acfiInterval.safeCancel = function(interval){
+  var safeCancel = function(interval){
     if(interval !== null){ $interval.cancel(interval); }
   };
 
 
-  acfiInterval.safeTimeoutCancel = function(timeout){
+  var safeTimeoutCancel = function(timeout){
     if(timeout !== null){ $timeout.cancel(timeout); }
+  };
+
+
+  acfiInterval.prototype = {
+    startAnimationInterval: startAnimationInterval,
+    stopAnimationInterval: stopAnimationInterval,
+    continueAnimationInterval: continueAnimationInterval,
+    pauseAnimationInterval: pauseAnimationInterval,
+    safeCancel: safeCancel,
+    safeTimeoutCancel: safeTimeoutCancel
   };
 
   return acfiInterval;
 }]);
 
+
+acfi.factory('acfiIntervalInstance', [ "acfiInterval", function(acfiInterval){
+
+  var acfiIntervalInstance = { data: {} };
+
+  acfiIntervalInstance.create = function(id){
+    acfiIntervalInstance.data[id] = new acfiInterval(id);
+    return acfiIntervalInstance.data[id];
+  };
+
+  acfiIntervalInstance.get = function(id){
+    if(acfiIntervalInstance.data[id]===undefined){
+      acfiIntervalInstance.create(id);
+    }
+    return acfiIntervalInstance.data[id];
+  };
+
+  return acfiIntervalInstance;
+
+}]);

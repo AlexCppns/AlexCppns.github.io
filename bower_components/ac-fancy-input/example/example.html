@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" data-ng-app="exampleApp">
+<head class="ng-cloak">
+
+  <!-- Works with angularJS 1.2.9 -->
+  <script src="../bower_components/angular/angular.min.js"></script>
+  <script src="../dist/ac-fancy-input.js" type="text/javascript"></script>
+  <script src="example.js" type="text/javascript"></script>
+  <link href="example.css" media="all" rel="stylesheet">
+</head>
+
+<body class="ng-cloak">
+  <div style="min-height: 500px" ng-controller="AcExampleController">
+
+    <div class="main-search" ac-fancy-input="1" ac-animate="allowAnimation"></div>
+
+    <div ac-fancy-input-suggestions="1" ac-suggestion-count="8" ac-view-more-action="myViewMoreAction">
+      <div acfi-content-template>
+        <div>{{content.string}} - </div>
+        <div>Color: {{content.color}}</div>
+      </div>
+      <div acfi-view-more-template>View More</div>
+      <div acfi-no-results-template>
+        <span>No results for "<span>{{ AcfiData.string }}</span>"</span>
+      </div>
+    </div>
+  </div>
+  <div style="min-height: 500px" ng-controller="AcExampleControllerTwo">
+    <div  class="main-search" ac-fancy-input="2" ac-animate="allowAnimation"></div>
+
+    <div class="input-suggestion-container" ac-fancy-input-suggestions="2" ac-suggestion-count="8" ac-view-more-action="myViewMoreAction">
+      <div acfi-content-template>
+        <div>{{content.string}} - </div>
+        <div>Color: {{content.color}}</div>
+      </div>
+      <div acfi-view-more-template>View More</div>
+      <div acfi-no-results-template>
+        <span>No results for "<span>{{ AcfiData.string }}</span>"</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

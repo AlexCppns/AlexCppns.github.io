@@ -14,7 +14,7 @@ var acfi = angular.module('ac-fancy-input',[]);
 // To Do:
 // - Consistent object names and configuration
 // - Remove $rootScope usage where not needed
-// - Singleton => Multiple instances
+// - Full tests of the multiple instances
 // - Extract some of the css classes/Clean up the css
 // - Move/Remove application specific code
 
@@ -23,25 +23,28 @@ var acfi = angular.module('ac-fancy-input',[]);
 // ******************************** controller definition for search-box-suggestions ******************************** //
 
 
-acfi.controller('acfiSuggestionsController',[ 'acfiData', '$scope','$q', function(AcfiData, $scope, $q){
+acfi.controller('acfiSuggestionsController',[ 'acfiDataInstance', '$scope','$q', function(AcfiDataInstance, $scope, $q){
 
-  $scope.AcfiData = AcfiData;
+  $scope.AcfiData = AcfiDataInstance.get($scope.acId);
 
-  $scope.$on("onKeyUpAndDown", function(event, direction){
-    $scope.deferWatching().then(function(success){
-      if(success){
-        $scope.AcfiData.display = true;
-        $scope.AcfiData.onKeyUpAndDown(event, direction);
-      }
-    });
+  $scope.$on("onKeyUpAndDown", function(event, direction, id){
+    if($scope.acId === id){
+      $scope.deferWatching().then(function(success){
+        if(success){
+          $scope.AcfiData.display = true;
+          $scope.AcfiData.onKeyUpAndDown(event, direction);
+        }
+      });
+    }
   });
 
-  $scope.$on("onCloseDisplay", function(){
-
-    // This apply is important (called from directive):
-    $scope.$apply(function(){
-      $scope.AcfiData.display = false;
-    });
+  $scope.$on("onCloseDisplay", function(event, id){
+    if($scope.acId === id){
+      // This apply is important (called from directive):
+      $scope.$apply(function(){
+        $scope.AcfiData.display = false;
+      });
+    }
   });
 
   // Not sure if this is still necessary
@@ -59,9 +62,11 @@ acfi.controller('acfiSuggestionsController',[ 'acfiData', '$scope','$q', functio
 // **************************************** fancy input suggestions directives ************************************** //
 
 
-acfi.directive('acFancyInputSuggestions', [ '$rootScope', function($rootScope){
+acfi.directive('acFancyInputSuggestions', [ '$rootScope','$window', function($rootScope, $window){
 
-  var header_template = '<div ng-transclude></div><span acfi-header></span>';
+
+
+  var header_template = '<div data-ng-transclude></div><span data-acfi-header></span>';
 
   var ng_repeat_template = '<div class="type-row clearfix" data-ng-class="suggestion_type.klass" data-ng-class-even="\'even\'" data-ng-class-odd="\'odd\'" data-ng-repeat="suggestion_type in AcfiData.suggestion_types">' +
       '<div class="type-name-wrapper" data-ng-show="suggestion_type.contents.length > 0">' +
@@ -73,7 +78,7 @@ acfi.directive('acFancyInputSuggestions', [ '$rootScope', function($rootScope){
       'data-ng-class="{ selected: content.selected}" ' +
       'data-ng-mouseover="AcfiData.selectSuggestion($parent.$index, $index)" ' +
       'data-ng-click="AcfiData.selectSuggestion($parent.$index, $index); acfiQueryAction()">' +
-      '<div class="row-wrapper light clearfix" acfi-content></div>'+
+      '<div class="row-wrapper light clearfix" data-acfi-content></div>'+
       '</li>' +
       '</ul>' +
       '</div>' +
@@ -82,32 +87,37 @@ acfi.directive('acFancyInputSuggestions', [ '$rootScope', function($rootScope){
   var footer_template = '<div class="view-more">' +
       '<a data-ng-show="AcfiData.noResultDisplay == false && acSuggestionCount > AcfiData.suggestionDisplayLimit" ' +
       'data-ng-click="acfiViewMoreAction($event)">' +
-      '<div acfi-view-more></div>' +
+      '<div data-acfi-view-more></div>' +
       '</a>' +
-      '<a data-ng-show="AcfiData.noResultDisplay == true" class="no-results"><div acfi-no-results></div></a>'+
+      '<a data-ng-show="AcfiData.noResultDisplay == true" class="no-results"><div data-acfi-no-results></div></a>'+
       '</div>';
 
 
-  var template = '<div id="input-suggestion-box" class="input-suggestion" data-ng-show="AcfiData.display == true" acfi-reset-display>';
+  var template = '<div id="input-suggestion-box" class="input-suggestion" data-ng-show="AcfiData.display == true" data-acfi-reset-display>';
   template += header_template + ng_repeat_template + footer_template;
   template += '</div>';
 
   return {
     scope: {
       acfiViewMoreAction: '=acViewMoreAction',
-      acSuggestionCount: '=?'
+      acSuggestionCount: '=?',
+      acId: '=acFancyInputSuggestions'
     },
     template: template,
     transclude: true,
     controller: 'acfiSuggestionsController',
-    link: function(scope, e, attrs){
+    link: function(scope, element, attrs){
       if(attrs.acSuggestionCount===undefined){
         scope.acSuggestionCount = 0;
       }
 
       scope.acfiQueryAction = function(){
-        $rootScope.$broadcast('onSubmitQuery');
+        $rootScope.$broadcast('onSubmitQuery', scope.acId);
       };
+
+      var w = angular.element($window);
+      element.bind('click', function(e){ e.stopPropagation(); });
+      w.bind('click', function(e){ $rootScope.$broadcast("onCloseDisplay", scope.acId); });
     }
   };
 }]);
@@ -146,16 +156,19 @@ acfi.directive('acfiContent', function(){ return acfi_transclude_directive('Cont
 acfi.directive('acfiNoResultsTemplate', function(){ return acfi_template_directive('NoResults'); });
 acfi.directive('acfiNoResults', function(){ return acfi_transclude_directive('NoResults'); });
 acfi.directive('acfiViewMoreTemplate', function(){ return acfi_template_directive('ViewMore'); });
-acfi.directive('acfiViewMore', function(){ return acfi_transclude_directive('ViewMore'); });// ****************************************************************************************************************** //
+acfi.directive('acfiViewMore', function(){ return acfi_transclude_directive('ViewMore'); });
+
+
+// ****************************************************************************************************************** //
 
 // ************************************** controller definition for search-box ************************************** //
 
-acfi.controller('acfiSearchboxController', [ '$scope', '$window', 'acfiInterval', 'acfiData', function($scope, $window, AcfiInterval, AcfiData) {
+acfi.controller('acfiSearchboxController', [ '$scope', '$window', 'acfiIntervalInstance', 'acfiDataInstance', function($scope, $window, AcfiIntervalInstance, AcfiDataInstance) {
 
   $window.focus();
 
-  $scope.AcfiData = AcfiData;
-  $scope.AcfiInterval = AcfiInterval;
+  $scope.AcfiData = AcfiDataInstance.get($scope.acId);
+  $scope.AcfiInterval = AcfiIntervalInstance.get($scope.acId);
 
   $window.onblur = function (){
     $scope.AcfiInterval.inFocus = false;
@@ -166,25 +179,26 @@ acfi.controller('acfiSearchboxController', [ '$scope', '$window', 'acfiInterval'
   };
 
 
-  $scope.$on('onInitInterval', function () {
-    $scope.AcfiData.init();
+  $scope.$on('onInitInterval', function (event, id) {
+    if(id === $scope.acId){ $scope.AcfiData.init(); }
   });
 
 
-  $scope.$on('onPauseInterval', function(event, loopIndex){
-    $scope.AcfiData.pause(loopIndex);
+  $scope.$on('onPauseInterval', function(event, loopIndex, id){
+    if(id === $scope.acId){ $scope.AcfiData.pause(loopIndex); }
   });
 
 
-  $scope.$on('onContinueInterval', function(){
-    $scope.AcfiData.continueC();
+  $scope.$on('onContinueInterval', function(event, id){
+    if(id === $scope.acId){ $scope.AcfiData.continueC(); }
   });
 
 
-  $scope.$on('onStopInterval', function(){
-
-    $scope.AcfiData.string = "";
-    $scope.AcfiData.data_before = [];
+  $scope.$on('onStopInterval', function(event, id){
+    if(id === $scope.acId){
+      $scope.AcfiData.string = "";
+      $scope.AcfiData.data_before = [];
+    }
   });
 }]);
 
@@ -193,21 +207,27 @@ acfi.controller('acfiSearchboxController', [ '$scope', '$window', 'acfiInterval'
 
 // ******************************************* fancy input directives *********************************************** //
 
-acfi.directive('acFancyInput', [ '$rootScope', 'acfiCaret', "$timeout", 'acfiData', function($rootScope, acfiCaret, $timeout, AcfiData) {
+acfi.directive('acFancyInput', [ '$rootScope', 'acfiCaret', "$timeout", 'acfiDataInstance', function($rootScope, acfiCaret, $timeout, AcfiDataInstance) {
 
-  var template = '<div data-ng-class="{ focus: $root.searchFieldIsFocus || AcfiData.display }">' +
-                 '<div ng-transclude></div><div class="acfi-before" acfi-before></div>' +
-                 '<input tabindex="2" id="inputAnimation" class="anim-field" type="text" maxlength="70" spellcheck="false"';
-  template += ' data-ng-class="{\'no-opacity\': AcfiData.animating == false}")';
-  template += ' data-ng-style="AcfiData.font_style"';
-  template += ' data-ng-model="AcfiData.string">';
-  template += '<div data-ng-style="AcfiData.font_style" class="fancyInputFiller">';
-  template += '<span data-ng-repeat="char in AcfiData.data_before track by $index" data-ng-class="{colored: char[0] == true}">{{char[1]}}</span>';
-  template += '<b class="caret" data-ng-hide="$root.hideCaret">&#8203;</b>';
-  template += '<span data-ng-repeat="char_2 in AcfiData.data_after track by $index">{{char_2}}</span>';
+  var dummy_transclude = '<div data-ng-transclude></div>';
+  var before_template = '<div class="acfi-before" data-acfi-before></div>';
+  var after_template = '<span data-acfi-after></span>';
+
+  var input_template = '<input tabindex="2" id="inputAnimation" class="anim-field" type="text" maxlength="70" spellcheck="false"' +
+                       ' data-ng-class="{\'no-opacity\': AcfiData.animating == false}" data-ng-style="AcfiData.font_style"' +
+                       ' data-ng-model="AcfiData.string">';
+
+  var overlay_template =  '<div data-ng-style="AcfiData.font_style" class="fancyInputFiller">' +
+                          '<span data-ng-repeat="char in AcfiData.data_before track by $index" data-ng-class="{colored: char[0] == true}">{{char[1]}}</span>' +
+                          '<b class="caret" data-ng-hide="$root.hideCaret">&#8203;</b>' +
+                          '<span data-ng-repeat="char_2 in AcfiData.data_after track by $index">{{char_2}}</span>' +
+                          '</div>';
+
+  var template = '<div data-ng-class="{ focus: AcfiData.searchFieldIsFocus || AcfiData.display }">';
+  template += dummy_transclude + before_template + input_template + overlay_template + after_template;
   template += '</div>';
-  template += '<span acfi-after></span>';
-  template += '</div>';
+
+
 
   return {
     restrict: "A",
@@ -216,50 +236,50 @@ acfi.directive('acFancyInput', [ '$rootScope', 'acfiCaret', "$timeout", 'acfiDat
     transclude: true,
     controller: 'acfiSearchboxController',
     scope: {
-     acAnimate: "=acAnimate"
-
+     acAnimate: "=acAnimate",
+     acId: "=acFancyInput"
     },
-
-    link: function (scope, element, attrs) {
-
-      $rootScope.searchFieldIsFocus = false;
+    link: function (scope, element) {
 
       var input = angular.element(element.children()[2]);
 
       scope.filterTextTimeout = {};
       scope.acfiCaret = acfiCaret;
-      scope.AcfiData = AcfiData;
+      scope.AcfiData = AcfiDataInstance.get(scope.acId);
+
 
       input.bind("keyup select mouseup cut paste", function (e) {
         if(e.keyCode !== 13){ scope.processBinding(e, this); }
       });
 
+
       scope.$on("onEnterQuery", function(){ element[0].blur(); });
+
 
       input.on('blur', function() {
         scope.$apply(function() {
           scope.AcfiData.decideToStart(scope.acAnimate);
-          $rootScope.searchFieldIsFocus = false;
+          scope.AcfiData.searchFieldIsFocus = false;
         });
       });
 
+
       input.on('focus', function() {
         scope.$apply(function() {
-
           scope.AcfiData.decideToStop();
-          $rootScope.searchFieldIsFocus = true;
+          scope.AcfiData.searchFieldIsFocus = true;
         });
       });
 
 
       input.bind("keydown", function(e){
         if(e.keyCode === 13){
-          $rootScope.$broadcast('onSubmitQuery');
+          $rootScope.$broadcast('onSubmitQuery', scope.acId);
         }else{
           if (e.keyCode === 38 || e.keyCode === 40) {
             var direction = +1;
             if (e.keyCode === 38){ direction = -1; }
-            $rootScope.$broadcast("onKeyUpAndDown", direction);
+            $rootScope.$broadcast("onKeyUpAndDown", direction, scope.acId);
           }else{
             // reset selection if typing
             scope.$apply(function () { scope.AcfiData.selected_index = 10000; });
@@ -268,24 +288,18 @@ acfi.directive('acFancyInput', [ '$rootScope', 'acfiCaret', "$timeout", 'acfiDat
         }
       });
 
-      scope.processBinding = function(e, el){
 
+      scope.processBinding = function(e, el){
         scope.$apply(function () {
           var input_str = input.val().replace(/\s+/g, "\u00A0").split("").reverse();
           var pos = scope.acfiCaret.setCaret(el, true, e);
-          scope.AcfiData.processBinding(input_str,pos,input.val());
+          scope.AcfiData.processBinding(input_str, pos, input.val());
         });
       };
 
-      // looks like I can only watch a ngModel or expression
+
       scope.$watch(function(){ return scope.AcfiData.string; }, function (value) {
-        if(scope.AcfiData.watching === true){
-          if(scope.filterTextTimeout){ $timeout.cancel(scope.filterTextTimeout); }
-          scope.filterTextTimeout = $timeout(function() {
-            scope.AcfiData.checkFontThreshold();
-            $rootScope.$broadcast("onQuerySuggestions", value);
-          }, 140);
-        }
+        scope.AcfiData.handleWatch(value);
       });
     }
   };
@@ -299,18 +313,19 @@ var acfi_input_template_directive = function(string){
     require: '^acFancyInput',
     link: function(s, element, a, controller, transclude){
       element.remove();
-      controller['renderAcfi'+string+'Template'] = transclude;
+      controller['renderAcfi' + string + 'Template'] = transclude;
     }
   };
 };
+
 
 var acfi_input_transclude_directive = function(string){
   return {
     restrict: 'A',
     require: '^acFancyInput',
     link: function(scope, element, a, controller){
-      if(controller['renderAcfi'+string+'Template']!==undefined){
-        controller['renderAcfi'+string+'Template'](scope, function(dom){
+      if(controller['renderAcfi' + string + 'Template'] !== undefined){
+        controller['renderAcfi' + string + 'Template'](scope, function(dom){
           element.append(dom);
         });
       }
@@ -320,20 +335,9 @@ var acfi_input_transclude_directive = function(string){
 
 acfi.directive('acfiBeforeTemplate', function(){ return acfi_input_template_directive('Before'); });
 acfi.directive('acfiBefore', function(){ return acfi_input_transclude_directive('Before'); });
-
 acfi.directive('acfiAfterTemplate', function(){ return acfi_input_template_directive('After'); });
 acfi.directive('acfiAfter', function(){ return acfi_input_transclude_directive('After'); });
 
-
-acfi.directive('acfiResetDisplay', ['$rootScope', '$window', function($rootScope, $window){
-  return {
-    link: function(scope, element){
-      var w = angular.element($window);
-      element.bind('click', function(e){ e.stopPropagation(); });
-      w.bind('click', function(e){ $rootScope.$broadcast("onCloseDisplay"); });
-    }
-  };
-}]);
 
 
 // ****************************************************************************************************************** //
@@ -405,109 +409,112 @@ acfi.factory('acfiCaret', function () {
 
 // data handler for fancy input
 
-acfi.factory('acfiData', [ '$timeout','$rootScope', 'acfiInterval', function($timeout, $rootScope, AcfiInterval){
+acfi.factory('acfiData', [ '$timeout','$rootScope', 'acfiIntervalInstance', function($timeout, $rootScope, AcfiIntervalInstance){
 
-  var acfiData = {};
-
-  acfiData.data_before = [];
-  acfiData.data_after = [];
-  acfiData.string = '';
-  acfiData.tmp_str = '';
-  acfiData.animating = true;
-  acfiData.colored_text = true;
-  acfiData.watching = false;
-  acfiData.font_style = { 'font-size': "2.70em" };
-  acfiData.font_thresholds = [ [2000, 1.75], [50, 2.05], [45, 2.3], [40, 2.55], [35, 2.70] ];
-  acfiData.noResultDisplay = false;
-  acfiData.suggestionLimit = 2;
-  acfiData.suggestionDisplayLimit = 6;
-  acfiData.selected_index = 10000;
-  acfiData.display = false;
-  acfiData.lock_display = false;
-  acfiData.suggestion_types = [ { "klass": '', "contents": [], "name": '' } ];
-  acfiData.actionTimeout = {};
-  acfiData.init_string = '';
-  acfiData.selected = {};
-  acfiData.resizeAnimation = false;
-
-
-  acfiData.initText = function(_Init,_Pause,_Continue){
-    acfiData.init_string = _Init;
-    acfiData.init_array = _Init.split('').reverse();
-    acfiData.pause_array = _Pause.split('').reverse();
-    acfiData.continue_array = _Continue;
-    AcfiInterval.maxLoopIndex = _Continue.length;
+  var acfiData = function(opts){
+    this.id = opts.id;
+    this.data_before = [];
+    this.data_after = [];
+    this.string = '';
+    this.tmp_str = '';
+    this.animating = true;
+    this.colored_text = true;
+    this.watching = false;
+    this.font_style = { 'font-size': "2.70em" };
+    this.font_thresholds = [ [2000, 1.75], [50, 2.05], [45, 2.3], [40, 2.55], [35, 2.70] ];
+    this.noResultDisplay = false;
+    this.suggestionLimit = 2;
+    this.suggestionDisplayLimit = 6;
+    this.selected_index = 10000;
+    this.display = false;
+    this.lock_display = false;
+    this.suggestion_types = [ { "klass": '', "contents": [], "name": '' } ];
+    this.actionTimeout = {};
+    this.filterTextTimeout = {};
+    this.init_string = '';
+    this.selected = {};
+    this.resizeAnimation = false;
+    this.searchFieldIsFocus = false;
+    this.acfiInterval = AcfiIntervalInstance.create(opts.id);
   };
 
 
-  acfiData.reset = function(){
-    acfiData.colored_text = true;
-    acfiData.animating = true;
-    acfiData.init_array = acfiData.init_string.split('').reverse();
+  var initText = function(_Init,_Pause,_Continue){
+    this.init_string = _Init;
+    this.init_array = _Init.split('').reverse();
+    this.pause_array = _Pause.split('').reverse();
+    this.continue_array = _Continue;
+    this.acfiInterval.maxLoopIndex = _Continue.length;
   };
 
 
-  acfiData.checkFontThreshold = function(){
+  var reset = function(){
+    this.colored_text = true;
+    this.animating = true;
+    this.init_array = this.init_string.split('').reverse();
+  };
+
+
+  var checkFontThreshold = function(){
     var font_style = {};
-    for(var i = 0; i < acfiData.font_thresholds.length; i++){
-      if(acfiData.data_before.length + acfiData.data_after.length < acfiData.font_thresholds[i][0]){
-        font_style = { 'font-size': (acfiData.font_thresholds[i][1] + "em") };
+    for(var i = 0; i < this.font_thresholds.length; i++){
+      if(this.data_before.length + this.data_after.length < this.font_thresholds[i][0]){
+        font_style = { 'font-size': (this.font_thresholds[i][1] + "em") };
       }
     }
-
-    acfiData.font_style = angular.copy(font_style);
+    this.font_style = angular.copy(font_style);
   };
 
 
-  acfiData.init = function(){
-    if(acfiData.init_array.length > 0){
-      var s = acfiData.init_array.pop();
-      acfiData.data_before.push(acfiData.fillChar(s));
-      if(acfiData.resizeAnimation===true){ acfiData.checkFontThreshold(); }
+  var init = function(){
+    if(this.init_array.length > 0){
+      var s = this.init_array.pop();
+      this.data_before.push(this.fillChar(s));
+      if(this.resizeAnimation===true){ this.checkFontThreshold(); }
     }else{
-      if(AcfiInterval.inFocus === true){
-        AcfiInterval.pauseAnimationInterval();
+      if(this.acfiInterval.inFocus === true){
+        this.acfiInterval.pauseAnimationInterval();
       }
     }
   };
 
 
-  acfiData.pause = function(loopIndex){
-    acfiData.data_before = [];
-    acfiData.colored_text = true;
-    for(var i = acfiData.pause_array.length - 1; i >= 0; i--) {
-      acfiData.data_before.push(acfiData.fillChar(acfiData.pause_array[i]));
+  var pause = function(loopIndex){
+    this.data_before = [];
+    this.colored_text = true;
+    for(var i = this.pause_array.length - 1; i >= 0; i--) {
+      this.data_before.push(this.fillChar(this.pause_array[i]));
     }
-    acfiData.colored_text = false;
-    acfiData.tmp_str = acfiData.continue_array[loopIndex].split("").reverse();
+    this.colored_text = false;
+    this.tmp_str = this.continue_array[loopIndex].split("").reverse();
   };
 
 
-  acfiData.continueC = function(){
-    if(acfiData.tmp_str.length > 0 ){
-      var s = acfiData.tmp_str.pop();
-      acfiData.data_before.push(acfiData.fillChar(s));
-      if(acfiData.resizeAnimation===true){ acfiData.checkFontThreshold(); }
+  var continueC = function(){
+    if(this.tmp_str.length > 0 ){
+      var s = this.tmp_str.pop();
+      this.data_before.push(this.fillChar(s));
+      if(this.resizeAnimation===true){ this.checkFontThreshold(); }
     }else{
-      AcfiInterval.pauseAnimationInterval();
+      this.acfiInterval.pauseAnimationInterval();
     }
   };
 
 
-  acfiData.fillChar = function(s){
+  var fillChar = function(s){
     if(s === "+") {
-      acfiData.colored_text = false;
+      this.colored_text = false;
       return [];
     } else if(s === "-"){
-      acfiData.colored_text = true;
+      this.colored_text = true;
       return [];
     }else{
-      return [ acfiData.colored_text, acfiData.purifyChar(s) ];
+      return [ this.colored_text, this.purifyChar(s) ];
     }
   };
 
 
-  acfiData.purifyChar = function(s){
+  var purifyChar = function(s){
     if(s === " "){
       return "\u00A0";
     } else {
@@ -516,49 +523,49 @@ acfi.factory('acfiData', [ '$timeout','$rootScope', 'acfiInterval', function($ti
   };
 
 
-  acfiData.onKeyUpAndDown = function(event, direction){
-    acfiData.selected_index += direction;
-    if(acfiData.selected_index < 0){
-      acfiData.selected_index = acfiData.displayedLength() - 1;
-    }else if(acfiData.selected_index > acfiData.displayedLength() - 1){
-      acfiData.selected_index = 0;
+  var onKeyUpAndDown = function(event, direction){
+    this.selected_index += direction;
+    if(this.selected_index < 0){
+      this.selected_index = this.displayedLength() - 1;
+    }else if(this.selected_index > this.displayedLength() - 1){
+      this.selected_index = 0;
     }
-    acfiData.selectContent();
+    this.selectContent();
   };
 
 
-  acfiData.displayedLength = function(){
+  var displayedLength = function(){
     var length = 0;
-    for(var i = 0; i < acfiData.suggestion_types.length; i++){
-      length+=acfiData.suggestion_types[i].contents.length;
+    for(var i = 0; i < this.suggestion_types.length; i++){
+      length+= this.suggestion_types[i].contents.length;
     }
     return length;
   };
 
 
-  acfiData.selectSuggestion = function(i1, i2){
-    acfiData.deselectAll();
-    acfiData.selectWithIndexes(i1, i2);
-    acfiData.updateSelectedData(acfiData.suggestion_types[i1].contents[i2]);
+  var selectSuggestion = function(i1, i2){
+    this.deselectAll();
+    this.selectWithIndexes(i1, i2);
+    this.updateSelectedData(this.suggestion_types[i1].contents[i2]);
   };
 
 
-  acfiData.selectWithIndexes = function(i1, i2){
-    acfiData.suggestion_types[i1].contents[i2].selected = true;
-    acfiData.selected_index = acfiData.flattenIndex(i1, i2);
-    acfiData.selected =    acfiData.suggestion_types[i1].contents[i2];
+  var selectWithIndexes = function(i1, i2){
+    this.suggestion_types[i1].contents[i2].selected = true;
+    this.selected_index = this.flattenIndex(i1, i2);
+    this.selected = this.suggestion_types[i1].contents[i2];
   };
 
 
-  acfiData.selectContent = function(){
-    acfiData.deselectAll();
+  var selectContent = function(){
+    this.deselectAll();
     var current_index = 0;
 
     select_loop:
-    for(var i = 0; i < acfiData.suggestion_types.length; i++){
-      for(var j = 0; j < acfiData.suggestion_types[i].contents.length; j++){
-        if(current_index === acfiData.selected_index){
-          acfiData.selectSuggestion(i, j);
+    for(var i = 0; i < this.suggestion_types.length; i++){
+      for(var j = 0; j < this.suggestion_types[i].contents.length; j++){
+        if(current_index === this.selected_index){
+          this.selectSuggestion(i, j);
           break select_loop;
         }
         current_index += 1;
@@ -567,44 +574,44 @@ acfi.factory('acfiData', [ '$timeout','$rootScope', 'acfiInterval', function($ti
   };
 
 
-  acfiData.updateSelectedData = function(selected){
+  var updateSelectedData = function(selected){
     var cloned_selected = angular.copy(selected);
-    cloned_selected.string = acfiData.truncate(cloned_selected.string, 70);
-    acfiData.watching = false;
-    acfiData.colored_text = false;
-    acfiData.slug =  cloned_selected.slug;
-    acfiData.type = cloned_selected.type;
-    acfiData.updateInput(cloned_selected.string);
-    acfiData.checkFontThreshold();
+    cloned_selected.string = this.truncate(cloned_selected.string, 70);
+    this.watching = false;
+    this.colored_text = false;
+    this.slug =  cloned_selected.slug;
+    this.type = cloned_selected.type;
+    this.updateInput(cloned_selected.string);
+    this.checkFontThreshold();
   };
 
-  acfiData.updateInput = function(string){
-    acfiData.string = string;
-    acfiData.data_before = [ acfiData.fillChar(string) ];
-    acfiData.data_after = [];
+  var updateInput = function(string){
+    this.string = string;
+    this.data_before = [ this.fillChar(string) ];
+    this.data_after = [];
   };
 
 
-  acfiData.flattenIndex = function(i1, i2){
+  var flattenIndex = function(i1, i2){
     var count = i2;
     for(var i = 0; i < i1; i++){
-      count += acfiData.suggestion_types[i].contents.length;
+      count += this.suggestion_types[i].contents.length;
     }
     return count;
   };
 
 
-  acfiData.deselectAll = function(){
-    acfiData.slug = '';
-    for(var i = 0; i < acfiData.suggestion_types.length; i++){
-      for(var j = 0; j < acfiData.suggestion_types[i].contents.length; j++){
-        acfiData.suggestion_types[i].contents[j].selected = false;
+  var deselectAll = function(){
+    var slug = '';
+    for(var i = 0; i < this.suggestion_types.length; i++){
+      for(var j = 0; j < this.suggestion_types[i].contents.length; j++){
+        this.suggestion_types[i].contents[j].selected = false;
       }
     }
   };
 
 
-  acfiData.truncate = function(string, limit){
+  var truncate = function(string, limit){
     if(string.length > limit){
       return string.substr(0, limit - 4) + "...";
     }
@@ -612,34 +619,35 @@ acfi.factory('acfiData', [ '$timeout','$rootScope', 'acfiInterval', function($ti
   };
 
 
-  acfiData.decideToStop = function(){
-    if(acfiData.actionTimeout){
-      $timeout.cancel(acfiData.actionTimeout);
-      acfiData.actionTimeout = {};
+  var decideToStop = function(){
+    if(this.actionTimeout){
+      $timeout.cancel(this.actionTimeout);
+      this.actionTimeout = {};
     }
-    if(acfiData.animating === true){
-      acfiData.animating = false;
-      console.log("stopping animation interval");
-      AcfiInterval.stopAnimationInterval();
+    if(this.animating === true){
+      this.animating = false;
+      this.acfiInterval.stopAnimationInterval();
     }
   };
 
 
-  acfiData.decideToStart = function(extra_condition){
+  var decideToStart = function(extra_condition){
     if(extra_condition === undefined){ extra_condition = true; }
+    var data = this;
     $rootScope.hideCaret = false;
-    if(acfiData.animating === false && acfiData.string === "" && extra_condition){
-      acfiData.actionTimeout = $timeout(function(){
-        acfiData.reset();
-        $rootScope.$broadcast("onResetInterval");
-        AcfiInterval.startAnimationInterval();
+    if(this.animating === false && this.string === "" && extra_condition){
+      this.actionTimeout = $timeout(function(){
+        data.reset();
+        $rootScope.$broadcast("onResetInterval", data.id);
+        data.acfiInterval.startAnimationInterval();
       }, 150);
     }
   };
 
-  acfiData.processBinding = function(input_str,pos,value){
-    if(acfiData.watching === false){
-      acfiData.watching = true;
+
+  var processBinding = function(input_str, pos, value){
+    if(this.watching === false){
+      this.watching = true;
     }else{
       var tmp_chars = "";
       for(var i = 0; i < pos; i++){
@@ -647,11 +655,48 @@ acfi.factory('acfiData', [ '$timeout','$rootScope', 'acfiInterval', function($ti
         if (s !== undefined){ tmp_chars += s; }
       }
       input_str = input_str.reverse();
-      acfiData.data_after = [input_str.join("")];
-      acfiData.data_before = [[ false, tmp_chars ]];
-      acfiData.slug = '';
-      acfiData.string = value;
+      this.data_after = [input_str.join("")];
+      this.data_before = [[ false, tmp_chars ]];
+      this.slug = '';
+      this.string = value;
     }
+  };
+
+  var handleWatch = function(value){
+    var data = this;
+    if(this.watching === true){
+      if(this.filterTextTimeout){ $timeout.cancel(this.filterTextTimeout); }
+      this.filterTextTimeout = $timeout(function() {
+        data.checkFontThreshold();
+        $rootScope.$broadcast("onQuerySuggestions", value, data.id);
+      }, 250);
+    }
+  };
+
+
+  acfiData.prototype = {
+    initText: initText,
+    reset: reset,
+    checkFontThreshold: checkFontThreshold,
+    init: init,
+    pause: pause,
+    continueC: continueC,
+    fillChar: fillChar,
+    purifyChar: purifyChar,
+    onKeyUpAndDown: onKeyUpAndDown,
+    displayedLength: displayedLength,
+    selectSuggestion: selectSuggestion,
+    selectWithIndexes: selectWithIndexes,
+    selectContent: selectContent,
+    updateSelectedData: updateSelectedData,
+    updateInput: updateInput,
+    flattenIndex: flattenIndex,
+    deselectAll: deselectAll,
+    truncate: truncate,
+    decideToStop: decideToStop,
+    decideToStart: decideToStart,
+    processBinding: processBinding,
+    handleWatch: handleWatch
   };
 
 
@@ -659,110 +704,161 @@ acfi.factory('acfiData', [ '$timeout','$rootScope', 'acfiInterval', function($ti
 }]);
 
 
+acfi.factory('acfiDataInstance', [ 'acfiData', function(acfiData){
+
+  var acfiDataInstance = { data: {} };
+
+  acfiDataInstance.create = function(id){
+    acfiDataInstance.data[id] = new acfiData({ id:id });
+    return acfiDataInstance.data[id];
+  };
+
+  acfiDataInstance.get = function(id){
+    if(acfiDataInstance.data[id] === undefined){
+      acfiDataInstance.create(id);
+    }
+    return acfiDataInstance.data[id];
+  };
+
+  return acfiDataInstance;
+}]);
+
 // ********************************************************************************************************************* //
 
 // ********************************************* acfi-interval ********************************************************* //
 
 // manages text animation in the input field
 
+
 acfi.factory('acfiInterval', [ '$q', '$rootScope', '$interval', '$timeout', function ($q, $rootScope, $interval, $timeout) {
 
-  var acfiInterval = {};
+  var acfiInterval = function(id){
+    this.id = id;
+    this.intervalTime = 90;
+    this.pauseTimeoutTime = 2000;
+    this.stopInterval = false;
+    this.initInterval = null;
+    this.pauseTimeout = null;
+    this.continueInterval = null;
+    this.loopIndex = 0;
+    this.maxLoopIndex= 6;
+    this.miniTimeout = null;
+    this.inFocus = true;
+    this.antiKonami = false;
+  };
 
-  acfiInterval.intervalTime = 90;
-  acfiInterval.pauseTimeoutTime = 2000;
-  acfiInterval.stopInterval = false;
-  acfiInterval.initInterval = null;
-  acfiInterval.pauseTimeout = null;
-  acfiInterval.continueInterval = null;
-  acfiInterval.loopIndex = 0;
-  acfiInterval.maxLoopIndex= 6;
-  acfiInterval.miniTimeout = null;
-  acfiInterval.inFocus = true;
-  acfiInterval.antiKonami = false;
 
-  acfiInterval.startAnimationInterval = function () {
-    if(acfiInterval.antiKonami === false){
-      acfiInterval.pauseTimeout = null;
-      acfiInterval.continueInterval = null;
+  var startAnimationInterval = function () {
+    var acfi_i = this;
+    if(this.antiKonami === false){
+      this.pauseTimeout = null;
+      this.continueInterval = null;
 
-      acfiInterval.initInterval = $interval(function () {
-        if(acfiInterval.inFocus === true){
+      this.initInterval = $interval(function () {
+        if(acfi_i.inFocus === true){
           // only refresh state if in focus
-          $rootScope.$broadcast("onInitInterval");
+          $rootScope.$broadcast("onInitInterval", acfi_i.id);
         }
-      }, acfiInterval.intervalTime);
-      acfiInterval.antiKonami = true;
+      }, this.intervalTime);
+      this.antiKonami = true;
     }
   };
 
 
-  acfiInterval.stopAnimationInterval = function () {
-    acfiInterval.antiKonami = false;
-    acfiInterval.loopIndex = 0;
-    acfiInterval.safeCancel(acfiInterval.initInterval);
-    acfiInterval.safeTimeoutCancel(acfiInterval.pauseTimeout);
-    acfiInterval.safeTimeoutCancel(acfiInterval.miniTimeout);
-    acfiInterval.safeCancel(acfiInterval.continueInterval);
-    acfiInterval.initInterval = null;
-    acfiInterval.continueInterval = null;
-    acfiInterval.pauseTimeout = null;
-    acfiInterval.stopInterval = true;
-    $rootScope.$broadcast("onStopInterval");
+  var stopAnimationInterval = function () {
+    this.antiKonami = false;
+    this.loopIndex = 0;
+    this.safeCancel(this.initInterval);
+    this.safeTimeoutCancel(this.pauseTimeout);
+    this.safeTimeoutCancel(this.miniTimeout);
+    this.safeCancel(this.continueInterval);
+    this.initInterval = null;
+    this.continueInterval = null;
+    this.pauseTimeout = null;
+    this.stopInterval = true;
+    $rootScope.$broadcast("onStopInterval", this.id);
   };
 
 
-  acfiInterval.continueAnimationInterval = function(){
-    acfiInterval.pauseTimeout = null;
-    acfiInterval.miniTimeout = $timeout(function () {
-      if(acfiInterval.inFocus === true){
-        $rootScope.$broadcast("onSlowContinueInterval");
+  var continueAnimationInterval = function(){
+    var acfi_i = this;
+    this.pauseTimeout = null;
+    this.miniTimeout = $timeout(function () {
+      if(acfi_i.inFocus === true){
+        $rootScope.$broadcast("onSlowContinueInterval", acfi_i.id);
       }
-      acfiInterval.continueInterval = $interval(function () {
-        if(acfiInterval.inFocus === true){
-          $rootScope.$broadcast("onContinueInterval");
+      acfi_i.continueInterval = $interval(function () {
+        if(acfi_i.inFocus === true){
+          $rootScope.$broadcast("onContinueInterval", acfi_i.id);
         }
-      }, acfiInterval.intervalTime);
+      }, acfi_i.intervalTime);
     }, 120);
   };
 
 
-  acfiInterval.pauseAnimationInterval = function (){
+  var pauseAnimationInterval = function (){
+    var acfi_i = this;
+    this.safeCancel(this.continueInterval);
+    this.safeCancel(this.initInterval);
+    this.initInterval = null;
+    this.continueInterval = null;
 
-    acfiInterval.safeCancel(acfiInterval.continueInterval);
-    acfiInterval.safeCancel(acfiInterval.initInterval);
-    acfiInterval.initInterval = null;
-    acfiInterval.continueInterval = null;
-
-    acfiInterval.pauseTimeout = $timeout(function () {
-      if(acfiInterval.inFocus === true){
-        acfiInterval.loopIndex += 1;
-        if(acfiInterval.loopIndex >= acfiInterval.maxLoopIndex){
-          acfiInterval.loopIndex = 0;
+    this.pauseTimeout = $timeout(function () {
+      if(acfi_i.inFocus === true){
+        acfi_i.loopIndex += 1;
+        if(acfi_i.loopIndex >= acfi_i.maxLoopIndex){
+          acfi_i.loopIndex = 0;
         }
-        $rootScope.$broadcast("onPauseInterval", acfiInterval.loopIndex);
-        acfiInterval.continueAnimationInterval();
+        $rootScope.$broadcast("onPauseInterval", acfi_i.loopIndex, acfi_i.id);
+        acfi_i.continueAnimationInterval();
       }else{
         // Important condition: retry after the timeout if no focus
         // main reason of glitch
-        acfiInterval.pauseAnimationInterval();
+        acfi_i.pauseAnimationInterval();
       }
-
-    }, acfiInterval.pauseTimeoutTime);
-
+    }, this.pauseTimeoutTime);
   };
 
 
-  acfiInterval.safeCancel = function(interval){
+  var safeCancel = function(interval){
     if(interval !== null){ $interval.cancel(interval); }
   };
 
 
-  acfiInterval.safeTimeoutCancel = function(timeout){
+  var safeTimeoutCancel = function(timeout){
     if(timeout !== null){ $timeout.cancel(timeout); }
+  };
+
+
+  acfiInterval.prototype = {
+    startAnimationInterval: startAnimationInterval,
+    stopAnimationInterval: stopAnimationInterval,
+    continueAnimationInterval: continueAnimationInterval,
+    pauseAnimationInterval: pauseAnimationInterval,
+    safeCancel: safeCancel,
+    safeTimeoutCancel: safeTimeoutCancel
   };
 
   return acfiInterval;
 }]);
 
-})(window, document);
+
+acfi.factory('acfiIntervalInstance', [ "acfiInterval", function(acfiInterval){
+
+  var acfiIntervalInstance = { data: {} };
+
+  acfiIntervalInstance.create = function(id){
+    acfiIntervalInstance.data[id] = new acfiInterval(id);
+    return acfiIntervalInstance.data[id];
+  };
+
+  acfiIntervalInstance.get = function(id){
+    if(acfiIntervalInstance.data[id]===undefined){
+      acfiIntervalInstance.create(id);
+    }
+    return acfiIntervalInstance.data[id];
+  };
+
+  return acfiIntervalInstance;
+
+}]);})(window, document);

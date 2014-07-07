@@ -40,6 +40,7 @@
       </div>
     </nav>
     <div class="jumbotron">
+
       <div class="container">
         <h1>ac-fancy-input</h1>
         <p>Enhanced search input with 'placeholder animation' and categorized suggestions for <strong><a href="http://angularjs.org">AngularJS</a></strong></p>
@@ -56,25 +57,37 @@
     </div>
   </header>
 
-  <div ng-controller="AcExampleController" class="container">
-    <div>
-      <div class="page-header"><h2>Demo</h2>
-        </div>
-      <div class=""></div>
-      <input class="main-search" ac-fancy-input ac-animate="allowAnimation">
 
-      <div ac-fancy-input-suggestions ac-suggestion-count="8" ac-view-more-action="myViewMoreAction">
-        <div acfi-content-template>
-          <div>{{content.string}} - </div>
-          <div>Color: {{content.color}}</div>
-        </div>
-        <div acfi-view-more-template>View More</div>
-        <div acfi-no-results-template>
-          <span>No results for "<span>{{ AcfiData.string }}</span>"</span>
-        </div>
+
+  <div class="container" style="min-height: 500px" ng-controller="AcExampleController">
+    <div class="page-header"><h2>Demo</h2></div>
+    <div class="main-search" ac-fancy-input="1" ac-animate="allowAnimation"></div>
+
+    <div class="input-suggestion-container" ac-fancy-input-suggestions="1" ac-suggestion-count="8" ac-view-more-action="myViewMoreAction">
+      <div acfi-content-template>
+        <div>{{content.string}} - </div>
+        <div>Color: {{content.color}}</div>
+      </div>
+      <div acfi-view-more-template>View More</div>
+      <div acfi-no-results-template>
+        <span>No results for "<span>{{ AcfiData.string }}</span>"</span>
       </div>
     </div>
   </div>
+  <!--<div class="container" style="min-height: 500px" ng-controller="AcExampleControllerTwo">-->
+    <!--<div  class="main-search" ac-fancy-input="2" ac-animate="allowAnimation"></div>-->
+
+    <!--<div class="input-suggestion-container" ac-fancy-input-suggestions="2" ac-suggestion-count="8" ac-view-more-action="myViewMoreAction">-->
+      <!--<div acfi-content-template>-->
+        <!--<div>{{content.string}} - </div>-->
+        <!--<div>Color: {{content.color}}</div>-->
+      <!--</div>-->
+      <!--<div acfi-view-more-template>View More</div>-->
+      <!--<div acfi-no-results-template>-->
+        <!--<span>No results for "<span>{{ AcfiData.string }}</span>"</span>-->
+      <!--</div>-->
+    <!--</div>-->
+  <!--</div>-->
 
 </body>
 </html>
