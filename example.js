@@ -1,7 +1,7 @@
 
 // Example of usage for the module ac-fancy-input
 
-var myApp = angular.module('exampleApp',['ac-fancy-input']);
+var myApp = angular.module('exampleApp',['ac-fancy-input','ui.bootstrap']);
 
 myApp.factory('sampleData',[ function(){
 

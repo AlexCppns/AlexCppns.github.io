@@ -58,36 +58,48 @@
   </header>
 
 
+  <tabset type="pills" class="container">
+    <tab>
+      <tab-heading><h2>Demo</h2></tab-heading>
+      <div style="min-height: 500px" ng-controller="AcExampleController">
 
-  <div class="container" style="min-height: 500px" ng-controller="AcExampleController">
-    <div class="page-header"><h2>Demo</h2></div>
-    <div class="main-search" ac-fancy-input="1" ac-animate="allowAnimation"></div>
 
-    <div class="input-suggestion-container" ac-fancy-input-suggestions="1" ac-suggestion-count="8" ac-view-more-action="myViewMoreAction">
-      <div acfi-content-template>
-        <div>{{content.string}} - </div>
-        <div>Color: {{content.color}}</div>
+        <div class="main-search" ac-fancy-input="1" ac-animate="allowAnimation"></div>
+
+        <div class="input-suggestion-container" ac-fancy-input-suggestions="1" ac-suggestion-count="8" ac-view-more-action="myViewMoreAction">
+          <div acfi-content-template>
+            <div>{{content.string}} - </div>
+            <div>Color: {{content.color}}</div>
+          </div>
+          <div acfi-view-more-template>View More</div>
+          <div acfi-no-results-template>
+            <span>No results for "<span>{{ AcfiData.string }}</span>"</span>
+          </div>
+        </div>
       </div>
-      <div acfi-view-more-template>View More</div>
-      <div acfi-no-results-template>
-        <span>No results for "<span>{{ AcfiData.string }}</span>"</span>
-      </div>
-    </div>
-  </div>
-  <!--<div class="container" style="min-height: 500px" ng-controller="AcExampleControllerTwo">-->
-    <!--<div  class="main-search" ac-fancy-input="2" ac-animate="allowAnimation"></div>-->
+      <!--<div class="container" style="min-height: 500px" ng-controller="AcExampleControllerTwo">-->
+      <!--<div  class="main-search" ac-fancy-input="2" ac-animate="allowAnimation"></div>-->
 
-    <!--<div class="input-suggestion-container" ac-fancy-input-suggestions="2" ac-suggestion-count="8" ac-view-more-action="myViewMoreAction">-->
+      <!--<div class="input-suggestion-container" ac-fancy-input-suggestions="2" ac-suggestion-count="8" ac-view-more-action="myViewMoreAction">-->
       <!--<div acfi-content-template>-->
-        <!--<div>{{content.string}} - </div>-->
-        <!--<div>Color: {{content.color}}</div>-->
+      <!--<div>{{content.string}} - </div>-->
+      <!--<div>Color: {{content.color}}</div>-->
       <!--</div>-->
       <!--<div acfi-view-more-template>View More</div>-->
       <!--<div acfi-no-results-template>-->
-        <!--<span>No results for "<span>{{ AcfiData.string }}</span>"</span>-->
+      <!--<span>No results for "<span>{{ AcfiData.string }}</span>"</span>-->
       <!--</div>-->
-    <!--</div>-->
-  <!--</div>-->
+      <!--</div>-->
+      <!--</div>-->
+    </tab>
+    <tab>
+      <tab-heading><h2>Installation</h2></tab-heading>
+      <p class="first_p">This module can be simply installed with bower:</p>
+      <pre>bower install ac-fancy-input#0.2.2</pre>
+      <p>This page is still a work in progress. Please refer to the <a href="https://github.com/AlexCppns/ac-fancy-input">documentation on github</a> for now.</p>
+    </tab>
+  </tabset>
+
 
 </body>
 </html>
